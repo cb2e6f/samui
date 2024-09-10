@@ -1,5 +1,7 @@
-#%%
+#!/usr/bin/env python
+
 import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -27,10 +29,13 @@ from loopy.utils.utils import remove_dupes
 # This requires a huge amount of memory since each image is 10.2 GB.
 # To download data from Google Cloud in the command line, use [gsutil](https://cloud.google.com/storage/docs/downloading-objects).
 
-sample_dir = Path("/Users/chaichontat/Downloads/trs")
+# sample_dir = Path("/Users/chaichontat/Downloads/trs")
+sample_dir = sys.argv[1]
 # dapi = (
 #     sample_dir / "datasets-mouse_brain_map-BrainReceptorShowcase-Slice1-Replicate1-images-mosaic_DAPI_z0.tif"
 # )
+
+print(sample_dir)
 
 #%% Coords
 coords = remove_dupes(
@@ -38,7 +43,7 @@ coords = remove_dupes(
         columns={"center_x": "x", "center_y": "y"}
     )[["x", "y"]]
 )
-
+print(coords)
 coords.index = coords.index.map("{:.0f}".format)
 
 feat = remove_dupes(
@@ -48,6 +53,7 @@ feat = remove_dupes(
         dtype=np.float32,
     )
 ).apply(lambda x: np.log2(x + 1), raw=True, axis=0)
+print(feat)
 feat.index = feat.index.map("{:.0f}".format)
 
 shutil.rmtree(sample_dir / "out_image", ignore_errors=True)
@@ -58,7 +64,7 @@ s = (
     .add_coords(coords, name="cellCoords", mPerPx=1e-6, size=1e-5).add_chunked_feature(
         feat, name="cells", coordName="cellCoords", unit="Log counts", sparse=True
     )
-    # .set_default_feature(group="cells", feature="Oxgr1") # Example: this needs to match a feature that exists in your sample.
+    .set_default_feature(group="cells", feature="TraesCS7D02G261600") # Example: this needs to match a feature that exists in your sample.
     .write()
 )
 
@@ -69,10 +75,12 @@ s = (
 # This requires alignment from the spot coordinates to the image coordinates.
 
 # Affine matrix
-scale = np.loadtxt(sample_dir / "micron_to_mosaic_pixel_transform.csv")
+scale = np.loadtxt(sample_dir / "images" / "micron_to_mosaic_pixel_transform.csv")
+
 # Inverse transform
 affine = ~Affine(*scale[:2].flatten() * 1e6)
-dapi = sample_dir / "mosaic_Cellbound1_z1.tif"
+dapi = sample_dir / "images" / "mosaic_DAPI_z3.tif"
+
 
 # Make another sample that has an image.
 shutil.rmtree(sample_dir / "out_image", ignore_errors=True)
